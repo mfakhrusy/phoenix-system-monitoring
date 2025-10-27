@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "erl_nif.h": "c",
+        "libvirt.h": "c"
+    },
+    "elixirLS.projectDir": ".",
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/fahru/.elixir-install/installs/elixir/1.19.1-otp-28/bin:/home/fahru/.elixir-install/installs/otp/28.1/bin:${env:PATH}"
+    },
+}
