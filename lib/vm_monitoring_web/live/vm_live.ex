@@ -22,33 +22,6 @@ defmodule VmMonitoringWeb.VmLive do
     }
   end
 
-  def handle_event("refresh", _params, socket) do
-    Logger.info("Received 'refresh' event")
-    socket = fetch_data(socket)
-    {:noreply, socket}
-  end
-
-  def handle_event("refresh_host", _params, socket) do
-  # identical to the code I gave earlier – forces one host-only fetch
-  case LibvirtNif.connect(~c"qemu:///system") do
-    {:ok, conn} ->
-      case LibvirtNif.get_host_info(conn) do
-        {:ok, host} ->
-          percents = host_to_percents(host)
-          {:noreply,
-           socket
-           |> assign(host_info: host, cpu_percents: percents, error: nil)}
-
-        {:error, reason} ->
-          {:noreply, assign(socket, error: reason)}
-      end
-      LibvirtNif.disconnect(conn)
-
-    {:error, reason} ->
-      {:noreply, assign(socket, error: reason)}
-  end
-end
-
   def handle_info(:load_domains, socket) do
     socket = fetch_data(socket)
     {:noreply, socket}
@@ -111,19 +84,12 @@ end
               </div>
             <% end %>
           </div>
-
-          <%!-- <button phx-click="refresh_host" class="mt-2 bg-blue-500 text-white px-3 py-1 rounded text-sm">
-            Refresh host
-          </button> --%>
         <% end %>
       </div>
 
       <div class="p-8">
         <div class="flex justify-between items-center mb-6 flex-column">
           <h2 class="text-3xl font-bold">Virtual Machines</h2>
-          <button phx-click="refresh" class="bg-blue-500 text-white px-4 py-2 rounded">
-            Refresh
-          </button>
         </div>
 
         <%= if @loading do %>
@@ -219,7 +185,7 @@ defmodule VmMonitoringWeb.VmLive.Poller do
     {%{host | time: zeroed}, prev}
   end
 
-  defp calc_util(prev, %{time: samples, cpus: cpus} = host) do
+  defp calc_util(prev, %{time: samples} = host) do
     {new_prev, util_list} =
       samples
       |> Enum.with_index()
