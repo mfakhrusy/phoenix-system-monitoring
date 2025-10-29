@@ -5,10 +5,6 @@ This is just a simple project that combines
 3. Erlang NIF to bridge C -> Phoenix LiveView
 
 
-Current state of the app (will always be updated because since this is an ongoing project to learn elixir):
-
-<img width="1909" height="790" alt="image" src="https://github.com/user-attachments/assets/c760bf21-00c2-4247-9764-7caf53b69e35" />
-
 
 Current features
 
@@ -19,3 +15,14 @@ Current features
 Limitations
 
 1. Only works on linux host. I personally only tested it using WSL + Ubuntu since WSL2 support nested virtualization and I'm using Windows as my main driver.
+
+------------------------------
+
+Current state of the app (will always be updated because since this is an ongoing project to learn elixir):
+
+<img width="1909" height="790" alt="image" src="https://github.com/user-attachments/assets/c760bf21-00c2-4247-9764-7caf53b69e35" />
+
+----------------------------------
+
+https://github.com/user-attachments/assets/63b3412a-749c-470b-a35c-69dd9df38d7a
+
