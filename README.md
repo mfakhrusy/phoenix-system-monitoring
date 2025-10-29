@@ -10,7 +10,7 @@ Current features
 
 1. Shows Host CPU percentage (using delta of cpu time per second)
 2. Shows virtual machine states
-3. Shutdown VM via browser (The "Create" function still not working as of this commit)
+3. Shutdown VM via browser (The "Start" button still not working as of this commit)
 
 Limitations
 
