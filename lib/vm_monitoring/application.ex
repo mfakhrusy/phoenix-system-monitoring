@@ -16,7 +16,7 @@ defmodule VmMonitoring.Application do
       # {VmMonitoring.Worker, arg},
       # Start to serve requests, typically the last entry
       VmMonitoringWeb.Endpoint,
-      VmMonitoringWeb.VmLive.Poller,
+      VmMonitoringWeb.VmLive.Poller
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
