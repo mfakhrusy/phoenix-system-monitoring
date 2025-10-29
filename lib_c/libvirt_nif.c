@@ -1,8 +1,8 @@
 #include <erl_nif.h>
 #include <libvirt/libvirt.h>
 #include <string.h>
+#include <stdio.h>
 
-// Resource type for connection handle
 static ErlNifResourceType* VIRCONN_RESOURCE_TYPE;
 
 typedef struct {
@@ -25,6 +25,7 @@ static ERL_NIF_TERM make_ok(ErlNifEnv* env, ERL_NIF_TERM value) {
 
 // NIF: connect to hypervisor
 static ERL_NIF_TERM connect_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    printf("connecting...\n");
     if (argc != 1) {
         return enif_make_badarg(env);
     }
@@ -86,7 +87,7 @@ static ERL_NIF_TERM disconnect_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 // NIF: list active domains
 static ERL_NIF_TERM list_domains_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     VirConnResource* res;
-    
+
     if (argc != 1 || !enif_get_resource(env, argv[0], VIRCONN_RESOURCE_TYPE, (void**)&res)) {
         return enif_make_badarg(env);
     }
@@ -95,76 +96,115 @@ static ERL_NIF_TERM list_domains_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
         return make_error(env, "connection closed");
     }
 
-    int numDomains = virConnectNumOfDomains(res->conn);
+    virDomainPtr *domains;
+    unsigned int flags = VIR_CONNECT_LIST_DOMAINS_RUNNING | VIR_CONNECT_LIST_DOMAINS_PAUSED | VIR_CONNECT_LIST_DOMAINS_SHUTOFF;
+    int numDomains = virConnectListAllDomains(res->conn, &domains, flags);
     if (numDomains < 0) {
-        return make_error(env, "failed to get number of domains");
-    }
-
-    if (numDomains == 0) {
-        return make_ok(env, enif_make_list(env, 0));
-    }
-
-    int* activeDomains = malloc(sizeof(int) * numDomains);
-    if (!activeDomains) {
-        return make_error(env, "memory allocation failed");
-    }
-
-    numDomains = virConnectListDomains(res->conn, activeDomains, numDomains);
-    if (numDomains < 0) {
-        free(activeDomains);
+        free(domains);
         return make_error(env, "failed to list domains");
     }
 
     ERL_NIF_TERM* domain_list = malloc(sizeof(ERL_NIF_TERM) * numDomains);
     if (!domain_list) {
-        free(activeDomains);
+        free(domains);
         return make_error(env, "memory allocation failed");
     }
 
     for (int i = 0; i < numDomains; i++) {
-        virDomainPtr dom = virDomainLookupByID(res->conn, activeDomains[i]);
-        if (!dom) {
-            domain_list[i] = enif_make_atom(env, "nil");
-            continue;
-        }
 
         virDomainInfo info;
-        const char* name = virDomainGetName(dom);
+        const char* name = virDomainGetName(domains[i]);
+        unsigned int id = virDomainGetID(domains[i]);
         
-        if (virDomainGetInfo(dom, &info) == 0 && name) {
+        if (virDomainGetInfo(domains[i], &info) == 0 && name) {
             ERL_NIF_TERM keys[] = {
-                enif_make_atom(env, "id"),
                 enif_make_atom(env, "name"),
                 enif_make_atom(env, "cpu_time"),
                 enif_make_atom(env, "memory"),
-                enif_make_atom(env, "state")
+                enif_make_atom(env, "state"),
             };
             
             ERL_NIF_TERM values[] = {
-                enif_make_int(env, activeDomains[i]),
                 enif_make_string(env, name, ERL_NIF_LATIN1),
                 enif_make_uint64(env, info.cpuTime),
                 enif_make_ulong(env, info.memory),
-                enif_make_int(env, info.state)
+                enif_make_int(env, info.state),
             };
             
             ERL_NIF_TERM map;
-            enif_make_map_from_arrays(env, keys, values, 5, &map);
+            enif_make_map_from_arrays(env, keys, values, 4, &map);
             domain_list[i] = map;
         } else {
             domain_list[i] = enif_make_atom(env, "nil");
         }
         
-        virDomainFree(dom);
+        virDomainFree(domains[i]);
     }
 
     ERL_NIF_TERM result = enif_make_list_from_array(env, domain_list, numDomains);
     
     free(domain_list);
-    free(activeDomains);
     
     return make_ok(env, result);
 }
+
+static ERL_NIF_TERM domain_shutdown_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    if (argc != 2) return enif_make_badarg(env);
+    VirConnResource* res;
+    ERL_NIF_TERM name_term;
+
+    if (!enif_get_resource(env, argv[0], VIRCONN_RESOURCE_TYPE, (void**)&res)) {
+        return enif_make_badarg(env);
+    }
+
+    char domain_name[128];
+
+    ErlNifBinary bin;
+    if (!enif_inspect_binary(env, argv[1], &bin) ||
+        bin.size >= sizeof(domain_name)) {
+        return enif_make_badarg(env);
+    }
+    memcpy(domain_name, bin.data, bin.size);
+    domain_name[bin.size] = '\0';
+
+    if (!res->conn) {
+        return make_error(env, "connection closed");
+    }
+
+    virDomainPtr dom = virDomainLookupByName(res->conn, domain_name);
+    if (!dom) {
+        return make_error(env, "failed to find domain");
+    }
+
+    // Attempt shutdown
+    int ret = virDomainShutdown(dom);
+    virDomainFree(dom);
+
+    if (ret < 0) {
+        return make_error(env, "failed to shutdown domain");
+    }
+
+    // Return {:ok, :shutdown}
+    ERL_NIF_TERM shutdown_atom = enif_make_atom(env, "shutdown");
+    return make_ok(env, shutdown_atom);
+}
+
+// static ERL_NIF_TERM domain_create_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+//     if (argc != 1) {
+//         return enif_make_badarg(env);
+//     }
+
+//     VirDomResource *res;
+//     if (!enif_get_resource(env, argv[0], VIRDOM_RESOURCE_TYPE, (void **)&res)) {
+//         return enif_make_badarg(env);
+//     }
+
+//     if (virDomainCreate(res->dom) != 0) {
+//         return make_error(env, "Failed to create VM");
+//     }
+
+//     return make_ok(env, enif_make_atom(env, "started"));
+// }
 
 virNodeCPUStats *getCPUStats(virConnectPtr conn, int cpu, int *nparams) {
     if (!conn || !nparams) {
@@ -352,6 +392,8 @@ static ErlNifFunc nif_funcs[] = {
     {"disconnect", 1, disconnect_nif, 0},
     {"list_domains", 1, list_domains_nif, 0},
     {"get_host_info", 1, get_host_info_nif, 0},
+    {"domain_shutdown", 2, domain_shutdown_nif, 0},
+    // {"domain_create", 1, domain_create_nif, 0}
 };
 
 // Initialize NIF module

@@ -31,7 +31,8 @@ defmodule LibvirtNif do
     end)
   end
 
-  @type conn :: reference()   # or whatever your C side produces
+  # @type conn :: reference()
+  @opaque conn :: reference()
 
   @spec connect(uri :: charlist()) :: {:ok, conn} | {:error, charlist() | :badarg}
   def connect(_uri) do
@@ -42,47 +43,40 @@ defmodule LibvirtNif do
     raise "NIF disconnect/1 not loaded"
   end
 
-  # @spec list_domains(conn) :: {:ok, [String.t()]} | {:error, charlist()}
-  # def list_domains(_conn) do
-  #   # raise "NIF list_domains/1 not loaded"
-  #   :erlang.nif_error(:nif_not_loaded)
-  # end
-
-  # @type domain :: %{
-  #       id: integer(),
-  #       name: String.t(),
-  #       memory: integer(),      # bytes
-  #       cpu_time: integer(),    # whatever unit you return
-  #       state: String.t()
-  #     }
-
-  # @spec list_domains(conn) :: {:ok, [domain]} | {:error, charlist()}
+  @type name() :: charlist()
 
   @type domain :: %{
-        id: integer(),
-        name: String.t(),
-        memory: integer(),
-        cpu_time: integer(),
-        state: String.t()
-      }
+          name: name(),
+          memory: integer(),
+          cpu_time: integer(),
+          state: String.t()
+        }
 
   @spec list_domains(conn()) :: {:ok, [domain()]} | {:error, charlist()}
   def list_domains(_conn) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  # @spec domain_shutdown(conn(), integer()) :: {:ok, atom()} | {:error, charlist()}
+  # def domain_shutdown(_conn, _id), do: :erlang.nif_error(:nif_not_loaded)
+
+  @spec domain_shutdown(conn(), name()) :: {:ok, atom()} | {:error, charlist()}
+  def domain_shutdown(_conn, _name), do: :erlang.nif_error(:nif_not_loaded)
+
+  # @spec domain_create(conn(), name()) :: {:ok, atom()} | {:error, charlist()}
+  # def domain_create(_conn, _name), do: :erlang.nif_error(:nif_not_loaded)
 
   @type cpu_time :: %{
-        total: non_neg_integer(),
-        idle: non_neg_integer(),
-        user: non_neg_integer(),
-        kernel: non_neg_integer()
-      }
+          total: non_neg_integer(),
+          idle: non_neg_integer(),
+          user: non_neg_integer(),
+          kernel: non_neg_integer()
+        }
 
   @type host :: %{
-    time: [cpu_time()],
-    cpus: non_neg_integer()
-  }
+          time: [cpu_time()],
+          cpus: non_neg_integer()
+        }
 
   @spec get_host_info(conn()) :: {:ok, host()} | {:error, charlist()}
   def get_host_info(_conn) do
