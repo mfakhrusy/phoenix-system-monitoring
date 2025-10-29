@@ -14,7 +14,7 @@ defmodule VmMonitoring.MixProject do
       listeners: [Phoenix.CodeReloader],
       compilers: [:elixir_make] ++ Mix.compilers(),
       make_targets: ["all"],
-      make_clean: ["clean"],
+      make_clean: ["clean"]
     ]
   end
 
